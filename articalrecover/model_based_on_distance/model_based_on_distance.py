@@ -29,7 +29,7 @@ P_fc_max = 250000 #W
 P_ESD_max = 400000 #W
 n_m = 0.6 #motor efficiency
 n_ESD = 0.95 #ESD efficiency
-n_fc_max = 0.6 #maximum efficiency of fuel cell
+n_fc_max = 0.84 #maximum efficiency of fuel cell
 g = 9.8
 v_max = 80 #mps
 v_min = 1 #mps
@@ -55,8 +55,8 @@ for index in range(29, N):
 
 #energy storage parametewrs(不知道单位)
 E_cap = 1000000*cap +1
-E_ini = E_cap
-PESD = 400000
+PESD = 400000 #it is Pd_max and Pc_max (to constrain the distributed energy)
+H_heat_value = 100000 #kJ/kg
 
 #modelling (this is based on time, the formulation is a little different to the model which is based on distance)
 m = Model('hydrogen_power')
@@ -72,21 +72,22 @@ v_ave_i2 = m.addVars(i,lb=0.0, vtype=GRB.CONTINUOUS, name='square of average spe
 v_ave_i1d = m.addVars(i,lb=0.0, vtype=GRB.CONTINUOUS, name='1/average speed')
 
 E_i_seg = m.addVars(i, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name='Applied force')
-'''
-E_i_fc = m.addVars(N-1, lb=0, vtype=GRB.CONTINUOUS, name='energy from fc')
-E_i_dis = m.addVars(N-1, lb=0, vtype=GRB.CONTINUOUS, name='energy discharge to ESD')
-E_i_ch = m.addVars(N-1, lb=0, vtype=GRB.CONTINUOUS, name='energy charge to ESD') #it is positive because in formulation there exist a minus sign
+#the former is basic model parameters, the latter is fuel cell hybrid parameters
+E_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy from fc')
+E_i_dis = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy discharge to ESD')
+E_i_ch = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy charge to ESD') #it is positive because in formulation there exist a minus sign
+E_init = m.addVars(ii, lb=0, vtype=GRB.CONTINUOUS, name="the initial energy of the ESD")#the initial is relative which is updated after every stage
 
-P_i_ESD = m.addVars(N-1, lb=0, vtype=GRB.CONTINUOUS, name='the net power of ESD')#this part P is corresponding to the mass, use P or M is same
-P_i_fc = m.addVars(N-1, lb=0, vtype=GRB.CONTINUOUS, name='the power of fc')
+P_i_ESD = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the net power of ESD')#this part P is corresponding to the mass, use P or M is same
+P_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the power of fc')
 
-m_i_ESD = m.addVars(N-1, lb=0, vtype=GRB.CONTINUOUS, name='the net hydrogen mass of ESD')
-m_i_fc = m.addVars(N-1, lb=0, vtype=GRB.CONTINUOUS, name='the hydrogen mass from fc')
+m_i_ESD = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the net hydrogen mass of ESD')
+m_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the hydrogen mass from fc')
 
-lambda_i = m.addVars(N-1, vtype=GRB.BINARY, name='to judge the energy comes back or need')
-SOE_i = m.addVars(N-1, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='the state of energy')
-Cr_i_fc = m.addVars(N-1, vtype=GRB.CONTINUOUS, name='hydrogen consumption rate')
-'''
+lambda_i = m.addVars(i, vtype=GRB.BINARY, name='to judge the energy comes back or need')
+SOE_i = m.addVars(i, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='the state of energy')
+Cr_i_fc = m.addVars(i, vtype=GRB.CONTINUOUS, name='hydrogen consumption rate')
+
 alpha = m.addVars(N, N_V, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='a')#N_V is the dimension of special speed at x for speed
 beta = m.addVars(N-1, N_V, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='b')#N is the dimension of all the speed through the whole distance for average speed
 #equation of SOS2 variable constrain
@@ -106,8 +107,6 @@ for index in i:
     m.addConstr(v_ave_i[index] == (quicksum(beta[index-1, j] * PWL_SPE[j] for j in range(N_V))), name='candidate average speed')
     m.addConstr(v_ave_i2[index] == (quicksum(beta[index-1, j] * PWL_SPE[j]**2 for j in range(N_V))), name='candidate average speed square')
     m.addConstr(v_ave_i1d[index] == (quicksum(1 / PWL_SPE[j] * beta[index-1, j] for j in range(N_V))), name='candidate 1/average speed')
-
-
 
 #Equation(1):travel distance(this model is based on time not on distance)
 for index in i:
@@ -138,8 +137,6 @@ for index in i:
     m.addConstr(E_i_seg[index]*n_m - M_Total * g * delta_h - 0.5 * M_Total * (v_i2[index] - v_i2[index-1]) - f_i_drag[index] * delta_d >= 0, name='conservation of energy1')
     m.addConstr(E_i_seg[index]/n_m - M_Total * g * delta_h - 0.5 * M_Total * (v_i2[index] - v_i2[index-1]) - f_i_drag[index] * delta_d >= 0, name='conservation of energy2')
 
-
-
 #Equation(9):energy constrain
 for index in i:
     m.addConstr(E_i_seg[index] >= -Fb_Max * delta_d * n_m, name='braking fore constrain')
@@ -147,10 +144,33 @@ for index in i:
     m.addConstr(E_i_seg[index] >= -P_b_max * delta_t_i[index] * n_m, name='braking power constrain')
     m.addConstr(E_i_seg[index] <= P_t_max * delta_t_i[index] / n_m, name='traction power constrain')
 
-
-
 #energy sum
 E_total = quicksum(E_i_seg)
+
+# the model for the energy distribution
+#Equation(10,11,12) the relation between distruted energy and the all energy
+for index in i:
+    m.addConstr(
+        E_i_seg[index] <= lambda_i[index] * (E_i_fc[index] + E_i_dis[index] * n_ESD) - (1 - lambda_i[index]) * E_i_ch[
+            index] / n_ESD) #the total energy distribution
+
+    m.addConstr(E_i_ch[index] <= (1-lambda_i[index]) * 10000000000) #charge and dischage only one can exist
+    m.addConstr(E_i_fc[index] <= lambda_i[index] * 10000000000)
+    m.addConstr(E_i_dis[index] <= lambda_i[index] * 10000000000)
+
+    m.addConstr(E_i_fc[index] <= P_fc_max * delta_t_i[index])#the distributed energy constrain
+    m.addConstr(E_i_ch[index] <= PESD * delta_t_i[index])
+    m.addConstr(E_i_dis[index] <= PESD * delta_t_i[index])
+
+#Equation(13) SOE expression (0-1 constrain has already written in the definition of SOE)
+E_init[0] = E_cap
+for index in i:
+    m.addConstr(SOE_i[index] == (E_init[index-1] + E_i_ch[index] - E_i_dis[index]) / E_cap)
+    m.addConstr(E_init[index] == SOE_i[index] * E_cap)
+
+#Equation(14) build the connection between Cri,fc and Pi,fc
+
+
 
 #objective function
 m.setObjective(E_total, GRB.MINIMIZE)
