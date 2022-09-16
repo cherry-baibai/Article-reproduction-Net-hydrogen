@@ -1,5 +1,6 @@
 from gurobipy import *
 import matplotlib.pyplot as plt
+import xlwt
 
 #为啥基本模型无解捏，参数数值改过，分析可能是以基于时间的模型有点问题，换成基于距离的模型trytry
 #基于时间的模型还是有问题，基于距离的模型在基于此的参数的基础上是可以运行的（出问题无解的点在于对速度的约束条件时应该保证初始和最终速度为1而非0）
@@ -74,21 +75,6 @@ v_ave_i2 = m.addVars(i,lb=0.0, vtype=GRB.CONTINUOUS, name='square of average spe
 v_ave_i1d = m.addVars(i,lb=0.0, vtype=GRB.CONTINUOUS, name='1/average speed')
 
 E_i_seg = m.addVars(i, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name='Applied force')
-#the former is basic model parameters, the latter is fuel cell hybrid parameters
-E_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy from fc')
-E_i_dis = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy discharge to ESD')
-E_i_ch = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy charge to ESD') #it is positive because in formulation there exist a minus sign
-E_init = m.addVars(ii, lb=0, vtype=GRB.CONTINUOUS, name="the initial energy of the ESD")#the initial is relative which is updated after every stage
-
-P_i_ESD = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the net power of ESD')#this part P is corresponding to the mass, use P or M is same
-P_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the power of fc')
-
-m_i_ESD = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the net hydrogen mass of ESD')
-m_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the hydrogen mass from fc')
-
-lambda_i = m.addVars(i, vtype=GRB.BINARY, name='to judge the energy comes back or need')
-SOE_i = m.addVars(i, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='the state of energy')
-Cr_i_fc = m.addVars(i, vtype=GRB.CONTINUOUS, name='hydrogen consumption rate')
 
 alpha = m.addVars(N, N_V, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='a')#N_V is the dimension of special speed at x for speed
 beta = m.addVars(N-1, N_V, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='b')#N is the dimension of all the speed through the whole distance for average speed
@@ -151,57 +137,57 @@ for index in i:
 #energy sum
 E_total = quicksum(E_i_seg)
 
-# the model for the energy distribution
-#here is the co-optimization, maybe the problem will be occured in Cri_fc and P_ifc ,delta_t will be a certain value in sequence optimization
-#while it is an uncertain value in co-optimization
-#Equation(10,11,12) the relation between distruted energy and the all energy
-for index in i:
-    m.addConstr(
-        E_i_seg[index] <= lambda_i[index] * (E_i_fc[index] + E_i_dis[index] * n_ESD) - (1 - lambda_i[index]) * E_i_ch[
-            index] / n_ESD) #the total energy distribution
-
-    m.addConstr(E_i_ch[index] <= (1-lambda_i[index]) * 10000000000) #charge and dischage only one can exist
-    m.addConstr(E_i_fc[index] <= lambda_i[index] * 10000000000)
-    m.addConstr(E_i_dis[index] <= lambda_i[index] * 10000000000)
-
-    m.addConstr(E_i_fc[index] <= P_fc_max * delta_t_i[index])#the distributed energy constrain
-    m.addConstr(E_i_ch[index] <= PESD * delta_t_i[index])
-    m.addConstr(E_i_dis[index] <= PESD * delta_t_i[index])
-
-#Equation(13) SOE expression (0-1 constrain has already written in the definition of SOE)
-E_init[0] = E_cap
-for index in i:
-    m.addConstr(SOE_i[index] == (E_init[index-1] + E_i_ch[index] - E_i_dis[index]) / E_cap)
-    m.addConstr(E_init[index] == SOE_i[index] * E_cap)
-
-#Equation(14) build the connection between Cri,fc and Pi,fc and calculate the m_fc
-for index in i:
-    m.addConstr(P_i_fc[index] == E_i_fc[index] * v_ave_i[index] / delta_d)
-    m.addGenConstrPWL(P_i_fc[index], Cr_i_fc[index], [0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250],
-                      [0, 0.3571, 0.64935, 0.931677, 1.19, 1.5133, 1.84729, 2.19298, 2.5975, 3.032345, 3.571428],
-                      name='Power-Efficiency_Characteristic')
-    m.addConstr(m_i_fc[index] == Cr_i_fc[index] * delta_t_i[index])
-m_fc = quicksum(m_i_fc)
-
-#Equation(15) calculate the m_ESD
-m_ESD = ((1 - SOE_i[N-1]) * E_cap) / H_heat_value / n_fc_max
-
-
-
 #objective function
-obj = m_fc + m_ESD
-m.setObjective(obj, GRB.MINIMIZE)
+m.setObjective(E_total, GRB.MINIMIZE)
 
 
 
 m.optimize()
 
-#plot the graph
+#plot the graph the velocity
 v_point = []
 for index in ii:
     v_point.append(v_i[index].x * 3.6)
 plt.plot(range(0,N),v_point)
 plt.show()
+
+#write the data into the excel
+def write_excel_xls(path, sheet_name, value_name):
+    parameter_numbers_ave = 6
+    parameter_numbers = 2
+    parameter_numbers_ab = 2
+    workbook = xlwt.Workbook()
+    sheet = workbook.add_sheet(sheet_name)#'the first optimal consequence'
+    for m in range(0, parameter_numbers_ave):
+        for n in range(0,N):
+            if n == 0:
+                sheet.write(m, n, value_name[n][m])
+            if n != 0:
+                if m == 0:
+                    sheet.write(m, n, v_ave_i[n].x)
+                if m == 1:
+                    sheet.write(m, n, v_ave_i1d[n].x)
+                if m == 2:
+                    sheet.write(m, n, v_ave_i2[n].x)
+                if m == 3:
+                    sheet.write(m, n, delta_t_i[n].x)
+                if m == 4:
+                    sheet.write(m, n, f_i_drag[n].x)
+                if m == 5:
+                    sheet.write(m, n, E_i_seg[n].x)
+
+    workbook.save(path)
+    print("xls数据写入成功")
+book_name_xls = 'the_first_optimal_consequence.xls'
+sheet_name_xls = 'the_first_optimal_consequence'
+value_name = [["v_ave_i", "v_ave_i1d", "v_ave_i2", "delta_t_i", "f_i_drag", "E_i_seg"],]
+write_excel_xls(book_name_xls, sheet_name_xls,value_name)
+
+
+
+
+
+
 
 
 
