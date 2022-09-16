@@ -62,6 +62,7 @@ H_heat_value = 100000 #kJ/kg
 m = Model('hydrogen_power')
 #delta_d_i= m.addVars(i, vtype=GRB.CONTINUOUS, name='Elapsed distance')
 delta_t_i= m.addVars(i,lb=0.0, vtype=GRB.CONTINUOUS, name='Elapsed time')
+#delta_t_i1d = m.addVars(i,lb=0.0, vtype=GRB.CONTINUOUS, name='1/Elapsed time ')
 
 f_i_drag = m.addVars(i, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name='Average drag force')
 
@@ -111,6 +112,8 @@ for index in i:
 #Equation(1):travel distance(this model is based on time not on distance)
 for index in i:
     m.addConstr(delta_t_i[index] == delta_d * v_ave_i1d[index], name='For Δdi')
+    #m.addConstr(v_ave_i[index] == delta_d * delta_t_i1d[index] , name='For Δdi1')
+
 m.addConstr(quicksum(delta_t_i) <= Time_total, name='total distance') #是不是时间和距离同时限定为等号所以过约束了导致模型无解？
 
 #Equation(2):the average speed
@@ -132,7 +135,7 @@ for index in range(0, N-1):
 m.addConstr(v_i[0] == 1, name="起点")
 m.addConstr(v_i[N-1] == 1, name="终点")
 
-#Equation(7): conservation of energy（未考虑能量来源的效率系数，后续改进添加）
+#Equation(7): conservation of energy
 for index in i:
     m.addConstr(E_i_seg[index]*n_m - M_Total * g * delta_h - 0.5 * M_Total * (v_i2[index] - v_i2[index-1]) - f_i_drag[index] * delta_d >= 0, name='conservation of energy1')
     m.addConstr(E_i_seg[index]/n_m - M_Total * g * delta_h - 0.5 * M_Total * (v_i2[index] - v_i2[index-1]) - f_i_drag[index] * delta_d >= 0, name='conservation of energy2')
@@ -148,6 +151,8 @@ for index in i:
 E_total = quicksum(E_i_seg)
 
 # the model for the energy distribution
+#here is the co-optimization, maybe the problem will be occured in Cri_fc and P_ifc ,delta_t will be a certain value in sequence optimization
+#while it is an uncertain value in co-optimization
 #Equation(10,11,12) the relation between distruted energy and the all energy
 for index in i:
     m.addConstr(
@@ -168,12 +173,26 @@ for index in i:
     m.addConstr(SOE_i[index] == (E_init[index-1] + E_i_ch[index] - E_i_dis[index]) / E_cap)
     m.addConstr(E_init[index] == SOE_i[index] * E_cap)
 
-#Equation(14) build the connection between Cri,fc and Pi,fc
+#Equation(14) build the connection between Cri,fc and Pi,fc and calculate the m_fc
+for index in i:
+    m.addConstr(P_i_fc[index] == E_i_fc[index] * v_ave_i[index] / delta_d)
+    m.addGenConstrPWL(P_i_fc[index], Cr_i_fc[index], [0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250],
+                      [0, 0.3571, 0.64935, 0.931677, 1.19, 1.5133, 1.84729, 2.19298, 2.5975, 3.032345, 3.571428],
+                      name='Power-Efficiency_Characteristic')
+    m.addConstr(m_i_fc[index] == Cr_i_fc[index] * delta_t_i[index])
+m_fc = quicksum(m_i_fc)
+
+#Equation(15) calculate the m_ESD
+m_ESD = ((1 - SOE_i[N-1]) * E_cap) / H_heat_value / n_fc_max
 
 
 
 #objective function
-m.setObjective(E_total, GRB.MINIMIZE)
+obj = m_fc + m_ESD
+m.setObjective(obj, GRB.MINIMIZE)
+
+
+
 m.optimize()
 
 #plot the graph
