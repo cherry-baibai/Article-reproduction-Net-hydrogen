@@ -1,0 +1,19 @@
+\ Model hydrogen_power_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+Minimize
+  + 476.1904880952382 Constant
+Subject To
+ R135: energy_from_fc[5] <= 647090.5929506621
+ R137: energy_discharge_to_ESD[5] <= 1.0353449487210595e+06
+ qc0: - 1.136363636363636 energy_charge_to_ESD[5] + [
+   energy_from_fc[5] * to_judge_the_energy_comes_back_or_need[5]
+   + 0.88 energy_discharge_to_ESD[5] * to_judge_the_energy_comes_back_or_need[5]
+   + 1.136363636363636 energy_charge_to_ESD[5] * to_judge_the_energy_comes_back_or_need[5]
+   ] >= 1.7255749145350994e+06
+Bounds
+ energy_from_fc[5] free
+ energy_discharge_to_ESD[5] free
+ Constant = 1
+Binaries
+ to_judge_the_energy_comes_back_or_need[5]
+End

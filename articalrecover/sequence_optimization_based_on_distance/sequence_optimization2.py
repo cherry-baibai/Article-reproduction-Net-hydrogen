@@ -62,8 +62,8 @@ P_b_max = 600000 #W
 P_t_max = 600000 #W
 P_fc_max = 250000 #W
 P_ESD_max = 400000 #W
-n_m = 0.6 #motor efficiency
-n_ESD = 0.95 #ESD efficiency
+n_m = 0.9 #motor efficiency
+n_ESD = 0.88 #ESD efficiency
 n_fc_max = 0.84 #maximum efficiency of fuel cell
 g = 9.8
 v_max = 33 #mps
@@ -85,56 +85,70 @@ m = Model('hydrogen_power')
 E_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy from fc')
 E_i_dis = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy discharge to ESD')
 E_i_ch = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='energy charge to ESD') #it is positive because in formulation there exist a minus sign
-E_init = m.addVars(ii, lb=0, vtype=GRB.CONTINUOUS, name="the initial energy of the ESD")#the initial is relative which is updated after every stage
+#E_init = m.addVars(ii, lb=0, vtype=GRB.CONTINUOUS, name="the initial energy of the ESD")#the initial is relative which is updated after every stage
+E_store = m.addVars(ii, lb=0, vtype=GRB.CONTINUOUS, name='store')
 
 P_i_ESD = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the net power of ESD')#this part P is corresponding to the mass, use P or M is same
 P_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the power of fc')
 
 m_i_ESD = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the net hydrogen mass of ESD')
 m_i_fc = m.addVars(i, lb=0, vtype=GRB.CONTINUOUS, name='the hydrogen mass from fc')
+m_fc = m.addVar(vtype=GRB.CONTINUOUS, name='m_fc')
 
 lambda_i = m.addVars(i, vtype=GRB.BINARY, name='to judge the energy comes back or need')
-SOE_i = m.addVars(i, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='the state of energy')
+SOE_i = m.addVars(ii, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='the state of energy')
 Cr_i_fc = m.addVars(i, vtype=GRB.CONTINUOUS, name='hydrogen consumption rate')
 
 for index in i:
     m.addConstr(
         E_i_seg[index] <= lambda_i[index] * (E_i_fc[index] + E_i_dis[index] * n_ESD) - (1 - lambda_i[index]) * (E_i_ch[
             index] / n_ESD)) #the total energy distribution
-    m.addConstr(E_i_ch[index] <= (1-lambda_i[index]) * 100000000) #charge and dischage only one can exist
-    m.addConstr(E_i_fc[index] <= lambda_i[index] * 100000000)
-    m.addConstr(E_i_dis[index] <= lambda_i[index] * 100000000)
+    m.addConstr(E_i_ch[index] <= (1-lambda_i[index]) * 100000000000) #charge and dischage only one can exist
+    m.addConstr(E_i_fc[index] <= lambda_i[index] * 100000000000)
+    m.addConstr(E_i_dis[index] <= lambda_i[index] * 100000000000)
 
-    m.addConstr(E_i_fc[index] <= P_fc_max * delta_t_i[index])#the distributed energy constrain
-    m.addConstr(E_i_ch[index] <= PESD * delta_t_i[index])
-    m.addConstr(E_i_dis[index] <= PESD * delta_t_i[index])
+for index in i:
+    m.addConstr(E_i_fc[index] <= P_fc_max * delta_t_i[index] * 1000)#the distributed energy constrain
+    m.addConstr(E_i_ch[index] <= PESD * delta_t_i[index] * 1000)
+    m.addConstr(E_i_dis[index] <= PESD * delta_t_i[index] * 1000)
 
 #Equation(13) SOE expression (0-1 constrain has already written in the definition of SOE)
-E_init[0] = E_cap
-for index in range(1, N-1):
-    m.addConstr(SOE_i[index] == (E_init[index-1] + E_i_ch[index] - E_i_dis[index]) / E_cap)
-    m.addConstr(E_init[index] == SOE_i[index] * E_cap)
+E_init = E_cap
+m.addConstr(E_store[0] == E_init)
+for index in range(1, N):
+    m.addConstr(E_store[index] == E_store[index-1] + E_i_ch[index-1] - E_i_dis[index-1])
+    m.addConstr(E_store[index] <= E_cap)
+for index in range(0,N):
+    m.addConstr(SOE_i[index] == E_store[index] / E_cap)
 
 #Equation(14) build the connection between Cri,fc and Pi,fc and calculate the m_fc
 for index in i:
-    m.addConstr(P_i_fc[index] == E_i_fc[index] * v_ave_i[index] / delta_d)
+    m.addConstr(P_i_fc[index] == E_i_fc[index] /(delta_t_i[index] * 1000))
     m.addGenConstrPWL(P_i_fc[index], Cr_i_fc[index], [0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250],
                       [0, 0.3571, 0.64935, 0.931677, 1.19, 1.5133, 1.84729, 2.19298, 2.5975, 3.032345, 3.571428],
                       name='Power-Efficiency_Characteristic')
     m.addConstr(m_i_fc[index] == Cr_i_fc[index] * delta_t_i[index])
-m_fc = quicksum(m_i_fc)
+m.addConstr(m_fc == quicksum(m_i_fc))
 
 #Equation(15) calculate the m_ESD
-m_ESD = ((1 - SOE_i[N-2]) * E_cap) / H_heat_value / n_fc_max
+m_ESD = ((1 - SOE_i[N-1]) * E_cap) / H_heat_value / n_fc_max
 
 #objective function
 obj = m_fc + m_ESD
 m.setObjective(obj, GRB.MINIMIZE)
 m.optimize()
 '''
+m.computeIIS()
+m.write("model1.ilp")
+'''
 #plot the graph
+'''
 Energy_from_fuel_cell = []
 for index in range(0,N-1):
     Energy_from_fuel_cell.append(E_i_fc[index].x)
-plt.plot(i, Energy_from_fuel_cell)
 '''
+SOE = []
+for index in range(0,N):
+    SOE.append(SOE_i[index].x)
+#plt.plot(i, Energy_from_fuel_cell)
+plt.plot(range(0,N),SOE)

@@ -29,8 +29,8 @@ P_b_max = 600000 #W
 P_t_max = 600000 #W
 P_fc_max = 250000 #W
 P_ESD_max = 400000 #W
-n_m = 0.6 #motor efficiency
-n_ESD = 0.95 #ESD efficiency
+n_m = 0.9 #motor efficiency
+n_ESD = 0.88 #ESD efficiency
 n_fc_max = 0.84 #maximum efficiency of fuel cell
 g = 9.8
 v_max = 33 #mps
@@ -148,9 +148,13 @@ m.optimize()
 
 #plot the graph the velocity
 v_point = []
+E_i = []
 for index in ii:
     v_point.append(v_i[index].x * 3.6)
+for index in i:
+    E_i.append(E_i_seg[index].x)
 plt.plot(range(0,N),v_point)
+plt.plot(range(1,N),E_i)
 plt.show()
 
 #write the data into the excel
