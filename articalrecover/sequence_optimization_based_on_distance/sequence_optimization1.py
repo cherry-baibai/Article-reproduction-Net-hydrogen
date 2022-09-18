@@ -8,33 +8,33 @@ import xlwt
 #这个是完整的基于距离的模型但由于模型中的cr与p，而p由E除以t得到因此其为两个变量相乘为非凸不可解，采用顺序优化来解决模型
 
 #import the parameters information
-Distance = 18000 #m
-Time_total = 500 #s
+Distance = 1800 #m
+Time_total = 130 #s
 H = 0 #don't consider the gradient temporary
 cap = 40
-M_Total = 178000 #kg
-N = 101
+M_Total = 72700 + 50*cap #kg
+N = 41
 N_V = 9 #speed is divided into N_v(used in alpha/beta)
 delta_d = int(Distance/(N-1))
 #delta_t = Time_total/(N-1)
 delta_h = 0
-Acc_max_a = 1.2 #m/s2
-Acc_max_b = -1.2 #m/s2
-A = 3.6449 #kn
-B = 0.001710 #kn/(m/s)
-C = 0.01134 #kn/(m2/s2)
-Fb_Max = 250000 #N 这个可以导入实际数据来同样进行线性分段，如同PWL_SPE的处理方式
-Ft_Max = 250000 #N
-P_b_max = 9376000 #W
-P_t_max = 9376000 #W
+Acc_max_a = 1 #m/s2
+Acc_max_b = -1 #m/s2
+A = 1.5 #kn
+B = 0.006 #kn/(m/s)
+C = 0.0067 #kn/(m2/s2)
+Fb_Max = 80000 #N 这个可以导入实际数据来同样进行线性分段，如同PWL_SPE的处理方式
+Ft_Max = 80000 #N
+P_b_max = 600000 #W
+P_t_max = 600000 #W
 P_fc_max = 250000 #W
 P_ESD_max = 400000 #W
 n_m = 0.6 #motor efficiency
 n_ESD = 0.95 #ESD efficiency
 n_fc_max = 0.84 #maximum efficiency of fuel cell
 g = 9.8
-v_max = 80 #mps
-v_min = 1 #mps
+v_max = 33 #mps
+v_min = 0.1 #mps
 
 i = list(range(1,N)) #1-100
 ii = list(range(0,N)) #0-100
@@ -75,6 +75,8 @@ v_ave_i2 = m.addVars(i,lb=0.0, vtype=GRB.CONTINUOUS, name='square of average spe
 v_ave_i1d = m.addVars(i,lb=0.0, vtype=GRB.CONTINUOUS, name='1/average speed')
 
 E_i_seg = m.addVars(i, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name='Applied force')
+
+aaaaaa = m.addVars(i, vtype=GRB.CONTINUOUS, name='hydrogen consumption rate')
 
 alpha = m.addVars(N, N_V, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='a')#N_V is the dimension of special speed at x for speed
 beta = m.addVars(N-1, N_V, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='b')#N is the dimension of all the speed through the whole distance for average speed
@@ -117,10 +119,10 @@ for index in i:
 
 #Equation(6): velocity constrain
 for index in range(0, N-1):
-    m.addConstr(v_i[index] <= v_limit[index], name='velocity constrain upper')
+    #m.addConstr(v_i[index] <= v_limit[index], name='velocity constrain upper')
     m.addConstr(v_i[index] >= 0, name='velocity constrain lower')
-m.addConstr(v_i[0] == 1, name="起点")
-m.addConstr(v_i[N-1] == 1, name="终点")
+m.addConstr(v_i[0] == 0.1, name="起点")
+m.addConstr(v_i[N-1] == 0.1, name="终点")
 
 #Equation(7): conservation of energy
 for index in i:
@@ -155,7 +157,6 @@ plt.show()
 def write_excel_xls(path, sheet_name, value_name):
     parameter_numbers_ave = 6
     parameter_numbers = 2
-    parameter_numbers_ab = 2
     workbook = xlwt.Workbook()
     sheet = workbook.add_sheet(sheet_name)#'the first optimal consequence'
     for m in range(0, parameter_numbers_ave):
@@ -175,12 +176,22 @@ def write_excel_xls(path, sheet_name, value_name):
                     sheet.write(m, n, f_i_drag[n].x)
                 if m == 5:
                     sheet.write(m, n, E_i_seg[n].x)
-
+    for m in range(parameter_numbers_ave, parameter_numbers_ave+parameter_numbers):
+        for n in range(0,N):
+            if n == 0:
+                sheet.write(m, n, value_name[n][m])
+            if n != 0:
+                if m == 6:
+                    sheet.write(m, n, v_i[n-1].x)
+                if m == 7:
+                    sheet.write(m, n, v_i2[n-1].x)
+    sheet.write(6, N, v_i[N - 1].x)#add the last date
+    sheet.write(7, N, v_i2[N - 1].x)
     workbook.save(path)
     print("xls数据写入成功")
 book_name_xls = 'the_first_optimal_consequence.xls'
 sheet_name_xls = 'the_first_optimal_consequence'
-value_name = [["v_ave_i", "v_ave_i1d", "v_ave_i2", "delta_t_i", "f_i_drag", "E_i_seg"],]
+value_name = [["v_ave_i", "v_ave_i1d", "v_ave_i2", "delta_t_i", "f_i_drag", "E_i_seg", "v_i", "v_i2"],]
 write_excel_xls(book_name_xls, sheet_name_xls,value_name)
 
 
