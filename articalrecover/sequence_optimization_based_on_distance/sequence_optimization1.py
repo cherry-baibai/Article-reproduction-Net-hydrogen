@@ -36,8 +36,8 @@ g = 9.8
 v_max = 33 #mps
 v_min = 0.1 #mps
 
-i = list(range(1,N)) #1-100
-ii = list(range(0,N)) #0-100
+i = list(range(1,N)) #1-40
+ii = list(range(0,N)) #0-40
 
 #piecewise linearisation accuracy(creat a speed list)
 delta_speed = v_max / (N_V - 1)
@@ -146,16 +146,20 @@ m.setObjective(E_total, GRB.MINIMIZE)
 
 m.optimize()
 
-#plot the graph the velocity
-v_point = []
-E_i = []
-for index in ii:
-    v_point.append(v_i[index].x * 3.6)
-for index in i:
-    E_i.append(E_i_seg[index].x)
-plt.plot(range(0,N),v_point)
-plt.plot(range(1,N),E_i)
-plt.show()
+#plot the graph function
+def plotspeed():
+    v_point = []
+    distance_plot = []
+    for index in ii:
+        v_point.append(v_i[index].x * 3.6)
+        distance_plot.append(delta_d * index)
+    plt.plot(distance_plot, v_point, label='Speed Trajectory')
+    plt.xlabel("Distance(s)")
+    plt.ylabel("Speed(km/h)")
+    plt.grid()
+    plt.legend()
+    plt.show()
+
 
 #write the data into the excel
 def write_excel_xls(path, sheet_name, value_name):
@@ -199,24 +203,5 @@ value_name = [["v_ave_i", "v_ave_i1d", "v_ave_i2", "delta_t_i", "f_i_drag", "E_i
 write_excel_xls(book_name_xls, sheet_name_xls,value_name)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#use the function
+plotspeed()

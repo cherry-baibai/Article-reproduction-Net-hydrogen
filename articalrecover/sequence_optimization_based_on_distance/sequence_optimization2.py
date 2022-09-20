@@ -69,8 +69,8 @@ g = 9.8
 v_max = 33 #mps
 v_min = 0.1 #mps
 
-i = list(range(0,N-1)) #0-99 len=100
-ii = list(range(0,N)) #0-100 len=101
+i = list(range(0,N-1)) #0-39 len=100
+ii = list(range(0,N)) #0-40 len=101
 
 #energy storage parametewrs(不知道单位)
 E_cap = 1000000*cap +1
@@ -141,14 +141,38 @@ m.optimize()
 m.computeIIS()
 m.write("model1.ilp")
 '''
-#plot the graph
+#plot the graph define the plot function
 '''
 Energy_from_fuel_cell = []
 for index in range(0,N-1):
     Energy_from_fuel_cell.append(E_i_fc[index].x)
 '''
-SOE = []
-for index in range(0,N):
-    SOE.append(SOE_i[index].x)
-#plt.plot(i, Energy_from_fuel_cell)
-plt.plot(range(0,N),SOE)
+def power_plot_function():
+    E_fc_plot = []
+    distance_plot = []
+    E_ESD_plot = []
+    for index in i: #0-39
+        E_fc_plot.append(E_i_fc[index].x / delta_t_i[index] / 1000)
+        E_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t_i[index] / 1000)
+        distance_plot.append((index+1) * delta_d)
+    plt.plot(distance_plot, E_fc_plot, label="FC power")
+    plt.plot(distance_plot, E_ESD_plot, label="ESD power")
+    plt.xlabel("Distance(m)")
+    plt.ylabel("Power(kw)")
+    plt.legend()
+    plt.grid()
+    plt.show()
+def SOC_plot_function():
+    SOE = []
+    distance_plot = []
+    for index in ii:
+        SOE.append(SOE_i[index].x)
+        distance_plot.append(index* delta_d)
+    plt.plot(distance_plot, SOE)
+    plt.xlabel("Distance(m)")
+    plt.ylabel("SOE")
+    plt.grid()
+    plt.show()
+
+power_plot_function()
+SOC_plot_function()
