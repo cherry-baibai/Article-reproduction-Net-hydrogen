@@ -154,7 +154,7 @@ def plotspeed():
         v_point.append(v_i[index].x * 3.6)
         distance_plot.append(delta_d * index)
     plt.plot(distance_plot, v_point, label='Speed Trajectory')
-    plt.xlabel("Distance(s)")
+    plt.xlabel("Distance(m)")
     plt.ylabel("Speed(km/h)")
     plt.grid()
     plt.legend()
