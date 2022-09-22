@@ -46,7 +46,7 @@ Time_total = 130 #s
 H = 0 #don't consider the gradient temporary
 cap = 40
 M_Total = 72700 + 50*cap #kg
-N = 201
+N = 41
 N_V = 35 #speed is divided into N_v(used in alpha/beta)
 delta_d = int(Distance/(N-1))
 #delta_t = Time_total/(N-1)
@@ -69,8 +69,8 @@ g = 9.8
 v_max = 33 #mps
 v_min = 0.1 #mps
 
-i = list(range(0,N-1)) #0-39 len=100
-ii = list(range(0,N)) #0-40 len=101
+i = list(range(0,N-1)) #0-39 len=40
+ii = list(range(0,N)) #0-40 len=41
 
 #energy storage parametewrs(不知道单位)
 E_cap = 1000000*cap +1
@@ -147,44 +147,51 @@ Energy_from_fuel_cell = []
 for index in range(0,N-1):
     Energy_from_fuel_cell.append(E_i_fc[index].x)
 '''
-def power_plot_function():
-    P_fc_plot = []
+def plotspeed(ax2):
+    v_point = []
     distance_plot = []
-    P_ESD_plot = []
+    for index in ii:
+        v_point.append(v_i[index] * 3.6)
+        distance_plot.append(delta_d * index)
+    ax2.set_xlim(0, Distance)
+    ax2.plot(distance_plot, v_point, 'r', label='Speed Trajectory')
+    ax2.set_xlabel("Distance(m)")
+    ax2.set_ylabel("Speed(km/h)", color='red')
+    ax2.tick_params(axis='y', colors='red')
+    ax2.grid()
+    ax2.legend(loc='lower right')
+    ax2.set_ylim(0, 100)
+    plt.show()
+
+def power_plot_function():
+    P_fc_plot = [E_i_fc[0].x / delta_t_i[0] / 1000]
+    distance_plot = [0]
+    P_ESD_plot = [(E_i_dis[0].x - E_i_ch[0].x) / delta_t_i[0] / 1000]
+    P_seg_plot = [E_i_seg[0] / delta_t_i[0] / 1000]
+    P_ch_plot = [-E_i_ch[0].x / delta_t_i[0] / 1000]
+    P_dis_plot = [E_i_dis[0].x / delta_t_i[0] / 1000]
     for index in i: #0-39
         P_fc_plot.append(E_i_fc[index].x / delta_t_i[index] / 1000)
         P_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t_i[index] / 1000)
+        P_seg_plot.append(E_i_seg[index] / delta_t_i[index] / 1000)  # 两者是等价的P_seg_plot2.append((E_i_fc[index].x + E_i_dis[index].x * n_ESD - E_i_ch[index].x / n_ESD)/delta_t/1000)
+        P_ch_plot.append(-E_i_ch[index].x / delta_t_i[index] / 1000)
+        P_dis_plot.append(E_i_dis[index].x / delta_t_i[index] / 1000)
         distance_plot.append((index+1) * delta_d)
-    plt.figure()
-    plt.xlim(0, Distance)
-    plt.step(distance_plot, P_fc_plot, label="FC power")
-    plt.step(distance_plot, P_ESD_plot, label="ESD power")
-    plt.xlabel("Distance(m)")
-    plt.ylabel("Power(kw)")
-    plt.legend()
-    plt.grid()
-    plt.show()
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    ax1.set_xlim(0, Distance)
+    ax1.step(distance_plot, P_fc_plot,color = 'b', label="FC power")
+    #plt.step(distance_plot, P_ESD_plot, label="ESD power")
+    ax1.step(distance_plot, P_seg_plot, color='m', label="the required/get power")
+    ax1.step(distance_plot, P_ch_plot, color='g', label="ESD charge power")
+    ax1.step(distance_plot, P_dis_plot, color='c', label="ESD discharge power")
 
-def energy_plot_function():
-    E_fc_plot = []
-    distance_plot = []
-    E_ESD_plot = []
-    E_ESD_charge_plot = []
-    E_ESD_discharge_plot = []
-    for index in i: #0-39
-        E_fc_plot.append(E_i_fc[index].x )
-        E_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x))
-        E_ESD_charge_plot.append(E_i_ch[index].x)
-        E_ESD_discharge_plot.append(E_i_dis[index].x)
-        distance_plot.append((index+1) * delta_d)
-    plt.figure()
-    plt.xlim(0, Distance)
-    plt.plot(distance_plot, E_fc_plot, label="FC energy")
-    plt.plot(distance_plot, E_ESD_plot, label="ESD energy")
-    plt.xlabel("Distance(m)")
-    plt.ylabel("Power(kw)")
-    plt.legend()
-    plt.grid()
+    ax1.set_xlabel("Distance(m)")
+    ax1.set_ylabel("Power(kw)")
+    ax1.legend()
+    ax1.grid()
+    ax2 = ax1.twinx()
+    plotspeed(ax2)
     plt.show()
 
 

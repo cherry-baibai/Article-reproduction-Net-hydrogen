@@ -11,7 +11,7 @@ Time_total = 130 #s
 H = 0 #don't consider the gradient temporary
 cap = 40
 M_Total = 72700 + 50*cap #kg
-N = 201
+N = 41
 N_V = 35 #speed is divided into N_v(used in alpha/beta)
 #delta_d = int(Distance/(N-1))
 delta_t = Time_total/(N-1)
@@ -208,44 +208,53 @@ m.Params.MIPGap = 0.01
 m.optimize()
 
 #plot the graph function
-def plotspeed():
+def plotspeed(ax2):
     v_point = []
     Time_plot = []
     for index in ii:
         v_point.append(v_i[index].x * 3.6)
         Time_plot.append(delta_t * index)
-    plt.xlim(0, Time_total)
-    plt.plot(Time_plot, v_point, label='Speed Trajectory')
-    plt.xlabel("Time(s)")
-    plt.ylabel("Speed(km/h)")
-    plt.grid()
-    plt.legend()
+    ax2.set_xlim(0, Time_total)
+    ax2.plot(Time_plot, v_point, 'r', label='Speed Trajectory')
+    ax2.set_xlabel("Time(s)")
+    ax2.set_ylabel("Speed(km/h)", color = 'red')
+    ax2.tick_params(axis='y', colors='red')
+    ax2.grid()
+    ax2.legend(loc='lower right')
     plt.show()
 
-plotspeed()
+#plotspeed()
 
-def power_plot_function():
-    P_fc_plot = []
-    Time_plot = []
-    P_ESD_plot = []
-    P_seg_plot = []
-    P_seg_plot2 = []
-    for index in i: #0-39
+def power_plot_function(): #注意时间和功率的维度问题，将第一个功率数据copy一份添加一个维度
+    P_fc_plot = [E_i_fc[1].x / delta_t / 1000]
+    Time_plot = [0]
+    P_ESD_plot = [(E_i_dis[1].x - E_i_ch[1].x) / delta_t / 1000]
+    P_seg_plot = [E_i_seg[1].x/delta_t/1000]
+    P_ch_plot = [-E_i_ch[1].x/delta_t/1000]
+    P_dis_plot = [E_i_dis[1].x / delta_t / 1000]
+    for index in i: #1-40
         P_fc_plot.append(E_i_fc[index].x / delta_t / 1000)
         P_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t / 1000)
-        P_seg_plot.append(E_i_seg[index].x/delta_t/1000)
-        P_seg_plot2.append((E_i_fc[index].x + E_i_dis[index].x * n_ESD - E_i_ch[index].x / n_ESD)/delta_t/1000)
+        P_seg_plot.append(E_i_seg[index].x/delta_t/1000) #两者是等价的P_seg_plot2.append((E_i_fc[index].x + E_i_dis[index].x * n_ESD - E_i_ch[index].x / n_ESD)/delta_t/1000)
+        P_ch_plot.append(-E_i_ch[index].x/delta_t/1000)
+        P_dis_plot.append(E_i_dis[index].x / delta_t / 1000)
         Time_plot.append((index+1) * delta_t)
-    plt.xlim(0, Time_total)
-    plt.step(Time_plot, P_fc_plot, label="FC power")
-    plt.step(Time_plot, P_ESD_plot, label="ESD power")
-    plt.step(Time_plot, P_seg_plot, label="the required/get power")
-    plt.step(Time_plot, P_seg_plot2, label="the required/get power2")
-    plt.xlabel("Time(s)")
-    plt.ylabel("Power(kw)")
-    plt.legend()
-    plt.grid()
-    plt.show()
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    ax1.set_xlim(0, Time_total)
+    ax1.step(Time_plot, P_fc_plot, color = 'b', label="FC power")
+    #ax1.step(Time_plot, P_ESD_plot, label="ESD power")# it is covered by charge and discharge lines in graph
+    ax1.step(Time_plot, P_seg_plot, color = 'm',label="the required/get power")
+    ax1.step(Time_plot, P_ch_plot, color = 'g', label="ESD charge power")
+    ax1.step(Time_plot, P_dis_plot, color = 'c', label="ESD discharge power")
+    ax1.set_xlabel("Time(s)")
+    ax1.set_ylabel("Power(kw)")
+    ax1.legend()
+    ax2 = ax1.twinx()
+    ax2.set_ylim(0,100)
+    ax1.grid()
+    plotspeed(ax2)
+    #plt.show()
 def SOC_plot_function():
     SOE = []
     Time_plot = []
