@@ -203,6 +203,12 @@ sheet_name_xls = 'the_first_optimal_consequence'
 value_name = [["v_ave_i", "v_ave_i1d", "v_ave_i2", "delta_t_i", "f_i_drag", "E_i_seg", "v_i", "v_i2"],]
 write_excel_xls(book_name_xls, sheet_name_xls,value_name)
 
+#calculate the total energy
+E_seg_calculate = []
+for index in i:
+    E_seg_calculate.append(E_i_seg[index].x)
+print('The total energy is ',(sum(E_seg_calculate)))
+
 
 #use the function
 plotspeed()

@@ -232,10 +232,12 @@ def power_plot_function(): #注意时间和功率的维度问题，将第一个�
     P_seg_plot = [E_i_seg[1].x/delta_t/1000]
     P_ch_plot = [-E_i_ch[1].x/delta_t/1000]
     P_dis_plot = [E_i_dis[1].x / delta_t / 1000]
+    E_seg_calculate = []
     for index in i: #1-40
         P_fc_plot.append(E_i_fc[index].x / delta_t / 1000)
         P_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t / 1000)
-        P_seg_plot.append(E_i_seg[index].x/delta_t/1000) #两者是等价的P_seg_plot2.append((E_i_fc[index].x + E_i_dis[index].x * n_ESD - E_i_ch[index].x / n_ESD)/delta_t/1000)
+        P_seg_plot.append(E_i_seg[index].x/delta_t/1000)#两者是等价的P_seg_plot2.append((E_i_fc[index].x + E_i_dis[index].x * n_ESD - E_i_ch[index].x / n_ESD)/delta_t/1000)
+        E_seg_calculate.append(E_i_seg[index].x)
         P_ch_plot.append(-E_i_ch[index].x/delta_t/1000)
         P_dis_plot.append(E_i_dis[index].x / delta_t / 1000)
         Time_plot.append((index+1) * delta_t)
@@ -254,6 +256,7 @@ def power_plot_function(): #注意时间和功率的维度问题，将第一个�
     ax2.set_ylim(0,100)
     ax1.grid()
     plotspeed(ax2)
+    print('The total energy is ',(sum(E_seg_calculate)))
     #plt.show()
 def SOC_plot_function():
     SOE = []
