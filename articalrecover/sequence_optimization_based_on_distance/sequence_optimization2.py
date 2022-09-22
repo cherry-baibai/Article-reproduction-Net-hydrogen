@@ -46,8 +46,8 @@ Time_total = 130 #s
 H = 0 #don't consider the gradient temporary
 cap = 40
 M_Total = 72700 + 50*cap #kg
-N = 41
-N_V = 9 #speed is divided into N_v(used in alpha/beta)
+N = 201
+N_V = 35 #speed is divided into N_v(used in alpha/beta)
 delta_d = int(Distance/(N-1))
 #delta_t = Time_total/(N-1)
 delta_h = 0
@@ -148,31 +148,59 @@ for index in range(0,N-1):
     Energy_from_fuel_cell.append(E_i_fc[index].x)
 '''
 def power_plot_function():
-    E_fc_plot = []
+    P_fc_plot = []
     distance_plot = []
-    E_ESD_plot = []
+    P_ESD_plot = []
     for index in i: #0-39
-        E_fc_plot.append(E_i_fc[index].x / delta_t_i[index] / 1000)
-        E_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t_i[index] / 1000)
+        P_fc_plot.append(E_i_fc[index].x / delta_t_i[index] / 1000)
+        P_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t_i[index] / 1000)
         distance_plot.append((index+1) * delta_d)
-    plt.plot(distance_plot, E_fc_plot, label="FC power")
-    plt.plot(distance_plot, E_ESD_plot, label="ESD power")
+    plt.figure()
+    plt.xlim(0, Distance)
+    plt.step(distance_plot, P_fc_plot, label="FC power")
+    plt.step(distance_plot, P_ESD_plot, label="ESD power")
     plt.xlabel("Distance(m)")
     plt.ylabel("Power(kw)")
     plt.legend()
     plt.grid()
     plt.show()
+
+def energy_plot_function():
+    E_fc_plot = []
+    distance_plot = []
+    E_ESD_plot = []
+    E_ESD_charge_plot = []
+    E_ESD_discharge_plot = []
+    for index in i: #0-39
+        E_fc_plot.append(E_i_fc[index].x )
+        E_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x))
+        E_ESD_charge_plot.append(E_i_ch[index].x)
+        E_ESD_discharge_plot.append(E_i_dis[index].x)
+        distance_plot.append((index+1) * delta_d)
+    plt.figure()
+    plt.xlim(0, Distance)
+    plt.plot(distance_plot, E_fc_plot, label="FC energy")
+    plt.plot(distance_plot, E_ESD_plot, label="ESD energy")
+    plt.xlabel("Distance(m)")
+    plt.ylabel("Power(kw)")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
 def SOC_plot_function():
     SOE = []
     distance_plot = []
     for index in ii:
         SOE.append(SOE_i[index].x)
         distance_plot.append(index* delta_d)
+    plt.figure()
+    plt.xlim(0, Distance)
     plt.plot(distance_plot, SOE)
     plt.xlabel("Distance(m)")
     plt.ylabel("SOE")
     plt.grid()
     plt.show()
-
 power_plot_function()
 SOC_plot_function()
+energy_plot_function()

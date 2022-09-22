@@ -11,8 +11,8 @@ Time_total = 130 #s
 H = 0 #don't consider the gradient temporary
 cap = 40
 M_Total = 72700 + 50*cap #kg
-N = 41
-N_V = 9 #speed is divided into N_v(used in alpha/beta)
+N = 201
+N_V = 35 #speed is divided into N_v(used in alpha/beta)
 #delta_d = int(Distance/(N-1))
 delta_t = Time_total/(N-1)
 delta_h = 0
@@ -38,12 +38,14 @@ i = list(range(1,N)) #1-40
 ii = list(range(0,N)) #0-40
 
 #piecewise linearisation accuracy(creat a speed list)
+ #以下的是我自己的速度数据，现在开始用学长的速度数据,改的地方1.速度基本向量2.初始与结束速度的数值设定
 delta_speed = v_max / (N_V - 1)
 PWL_SPE = [v_min] #from 0 to 33,piece 35
 pre = 0
 for index in range(N_V-1):
     pre = pre + delta_speed
     PWL_SPE.append(pre)
+
 #speed limitation
 v_limit = []
 for index in range(0, 25):
@@ -202,6 +204,7 @@ obj = m_fc + m_ESD
 
 #objective function
 m.setObjective(obj, GRB.MINIMIZE)
+m.Params.MIPGap = 0.01
 m.optimize()
 
 #plot the graph function
@@ -211,6 +214,7 @@ def plotspeed():
     for index in ii:
         v_point.append(v_i[index].x * 3.6)
         Time_plot.append(delta_t * index)
+    plt.xlim(0, Time_total)
     plt.plot(Time_plot, v_point, label='Speed Trajectory')
     plt.xlabel("Time(s)")
     plt.ylabel("Speed(km/h)")
@@ -221,15 +225,22 @@ def plotspeed():
 plotspeed()
 
 def power_plot_function():
-    E_fc_plot = []
+    P_fc_plot = []
     Time_plot = []
-    E_ESD_plot = []
+    P_ESD_plot = []
+    P_seg_plot = []
+    P_seg_plot2 = []
     for index in i: #0-39
-        E_fc_plot.append(E_i_fc[index].x / delta_t / 1000)
-        E_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t / 1000)
+        P_fc_plot.append(E_i_fc[index].x / delta_t / 1000)
+        P_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t / 1000)
+        P_seg_plot.append(E_i_seg[index].x/delta_t/1000)
+        P_seg_plot2.append((E_i_fc[index].x + E_i_dis[index].x * n_ESD - E_i_ch[index].x / n_ESD)/delta_t/1000)
         Time_plot.append((index+1) * delta_t)
-    plt.plot(Time_plot, E_fc_plot, label="FC power")
-    plt.plot(Time_plot, E_ESD_plot, label="ESD power")
+    plt.xlim(0, Time_total)
+    plt.step(Time_plot, P_fc_plot, label="FC power")
+    plt.step(Time_plot, P_ESD_plot, label="ESD power")
+    plt.step(Time_plot, P_seg_plot, label="the required/get power")
+    plt.step(Time_plot, P_seg_plot2, label="the required/get power2")
     plt.xlabel("Time(s)")
     plt.ylabel("Power(kw)")
     plt.legend()
@@ -241,6 +252,7 @@ def SOC_plot_function():
     for index in ii:
         SOE.append(SOE_i[index].x)
         Time_plot.append(index * delta_t)
+    plt.xlim(0, Time_total)
     plt.plot(Time_plot, SOE)
     plt.xlabel("Time(s)")
     plt.ylabel("SOE")

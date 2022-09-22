@@ -13,8 +13,8 @@ Time_total = 130 #s
 H = 0 #don't consider the gradient temporary
 cap = 40
 M_Total = 72700 + 50*cap #kg
-N = 41
-N_V = 9 #speed is divided into N_v(used in alpha/beta)
+N = 201
+N_V = 35 #speed is divided into N_v(used in alpha/beta)
 delta_d = int(Distance/(N-1))
 #delta_t = Time_total/(N-1)
 delta_h = 0
@@ -153,6 +153,7 @@ def plotspeed():
     for index in ii:
         v_point.append(v_i[index].x * 3.6)
         distance_plot.append(delta_d * index)
+    plt.xlim(0, Distance)
     plt.plot(distance_plot, v_point, label='Speed Trajectory')
     plt.xlabel("Distance(m)")
     plt.ylabel("Speed(km/h)")
