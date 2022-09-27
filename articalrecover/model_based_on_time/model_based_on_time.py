@@ -1,6 +1,7 @@
 from gurobipy import *
 import matplotlib.pyplot as plt
 import numpy
+from scipy import interpolate
 
 #为啥基本模型无解捏，参数数值改过，分析可能是以基于时间的模型有点问题，换成基于距离的模型trytry
 #基于时间的模型在能量守恒的地方由于F_drag与Δd相乘会造成非线性问题，因此在最开始对于F_drag的定义的时候就计算出其能量的值
@@ -93,6 +94,7 @@ m_fc = m.addVar(vtype=GRB.CONTINUOUS, name='m_fc')
 lambda_i = m.addVars(i, vtype=GRB.BINARY, name='to judge the energy comes back or need')
 SOE_i = m.addVars(ii, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='the state of energy')
 Cr_i_fc = m.addVars(i, vtype=GRB.CONTINUOUS, name='hydrogen consumption rate')
+#n_i_fc = m.addVars(i, vtype=GRB.CONTINUOUS, name='the efficency of fc')
 
 alpha = m.addVars(N, N_V, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='a')#N_V is the dimension of special speed at x for speed
 beta = m.addVars(N-1, N_V, lb=0, ub=1, vtype=GRB.CONTINUOUS, name='b')#N is the dimension of all the speed through the whole distance for average speed
@@ -187,7 +189,12 @@ for index in i:
     m.addConstr(P_i_fc[index] == E_i_fc[index] /(delta_t * 1000))
     m.addGenConstrPWL(P_i_fc[index], Cr_i_fc[index], [0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250],
                       [0, 0.3571, 0.64935, 0.931677, 1.19, 1.5133, 1.84729, 2.19298, 2.5975, 3.032345, 3.571428],
+                      name='Power-hydrogen_comsuption_Characteristic')
+    '''
+    m.addGenConstrPWL(P_i_fc[index], n_i_fc[index], [0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250],
+                      [0, 70.0, 77.0, 80.5, 84.0, 82.6, 81.20, 79.0, 76.9, 74.2, 70.0],
                       name='Power-Efficiency_Characteristic')
+    ''' #我真的不知道关于燃料电池效率的数据（很奇怪的是这个单位换算完全是乱的？？）
     m.addConstr(m_i_fc[index] == Cr_i_fc[index] * delta_t)
 m.addConstr(m_fc == quicksum(m_i_fc))
 
@@ -271,5 +278,55 @@ def SOC_plot_function():
     plt.grid()
     plt.show()
 
+def Cr_plot():
+    Time_plot = [0]
+    Cr_fc_plot = [Cr_i_fc[1].x]
+    m_i_fc_plot = [m_i_fc[1].x]
+    for index in i:
+        Time_plot.append(index * delta_t)
+        #n_fc_plot.append(P_i_fc[index].x/Cr_i_fc[index].x/H_heat_value)
+        Cr_fc_plot.append(Cr_i_fc[index].x)
+        m_i_fc_plot.append(m_i_fc[index].x)
+    plt.xlim(0, Time_total)
+    #plt.plot(Time_plot, Cr_fc_plot)
+    plt.plot(Time_plot, m_i_fc_plot)
+    plt.xlabel("Time(s)")
+    plt.ylabel("Cr(kg/t)")
+    plt.grid()
+    plt.show()
+
+def n_fc_plot():
+    Time_plot = [0]
+    P_fc_plot = [E_i_fc[1].x / delta_t / 1000]
+    n_fc_num = [E_i_fc[1].x / m_i_fc[1].x / 1000]
+    for index in i:
+        if m_i_fc[index].x != 0:
+            n_fc_num.append(E_i_fc[index].x / m_i_fc[index].x / 1000)
+        if m_i_fc[index].x == 0:
+            n_fc_num.append(20)
+        Time_plot.append(index * delta_t)
+        P_fc_plot.append(E_i_fc[index].x / delta_t / 1000)
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    plot1 = ax1.step(Time_plot, n_fc_num, label='Efficiency of fc')
+    ax1.set_xlim(0, Time_total)
+    ax1.set_xlabel("Time(s)")
+    ax1.set_ylabel("Fuel Cell efficiency(%)")
+    ax1.grid()
+    ax2 = ax1.twinx()
+    plot2 = ax2.step(Time_plot, P_fc_plot, color="orange", label="FC power")
+    ax2.set_ylabel("Power(kw)", color='orange')
+    ax2.tick_params(axis='y', colors='orange')
+    # 画lengend
+    lines = plot1 + plot2
+    ax1.legend(lines, [l.get_label() for l in lines], bbox_to_anchor=(1, 1))
+    plt.show()
+n_fc_plot()
+
+
+
+Cr_plot()
 power_plot_function()
 SOC_plot_function()
+print('the hydrogen consumption is ',(m_fc.x+((1 - SOE_i[N-1].x) * E_cap) / H_heat_value / n_fc_max))
+

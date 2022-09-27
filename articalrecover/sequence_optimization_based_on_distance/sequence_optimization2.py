@@ -200,7 +200,7 @@ def SOC_plot_function():
     distance_plot = []
     for index in ii:
         SOE.append(SOE_i[index].x)
-        distance_plot.append(index* delta_d)
+        distance_plot.append(index * delta_d)
     plt.figure()
     plt.xlim(0, Distance)
     plt.plot(distance_plot, SOE)
@@ -208,6 +208,56 @@ def SOC_plot_function():
     plt.ylabel("SOE")
     plt.grid()
     plt.show()
+
+def Cr_plot():
+    distance_plot = []
+    Cr_fc_plot = [Cr_i_fc[0].x]
+    for index in ii:
+        distance_plot.append(index * delta_d)
+    for index in i:
+        Cr_fc_plot.append(Cr_i_fc[index].x)
+    plt.xlim(0, Distance)
+    plt.plot(distance_plot, Cr_fc_plot)
+    plt.xlabel("Distance(m)")
+    plt.ylabel("Cr(kg/t)")
+    plt.grid()
+    plt.show()
+
+def n_fc_plot():
+    distance_plot = []
+    n_fc_num = [E_i_fc[1].x / m_i_fc[1].x / 1000]
+    P_fc_plot = [E_i_fc[0].x / delta_t_i[0] / 1000]
+    for index in ii:
+        distance_plot.append(index * delta_d)
+    for index in i:
+        if m_i_fc[index].x != 0:
+            n_fc_num.append(E_i_fc[index].x / m_i_fc[index].x /1000)
+        if m_i_fc[index].x == 0:
+            n_fc_num.append(20)
+        P_fc_plot.append(E_i_fc[index].x / delta_t_i[index] / 1000)
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    plot1 = ax1.step(distance_plot, n_fc_num, label='Efficiency of fc')
+    ax1.set_xlim(0, Distance)
+    ax1.set_ylim(15, 90)
+    ax1.set_xlabel("Distance(m)")
+    ax1.set_ylabel("Fuel Cell efficiency(%)")
+    ax1.grid()
+
+    ax2 = ax1.twinx()
+    plot2 = ax2.step(distance_plot, P_fc_plot, color="orange", label="FC power")
+    ax2.set_ylabel("Power(kw)", color='orange')
+    ax2.tick_params(axis='y', colors='orange')
+    #画lengend
+    lines = plot1 + plot2
+    ax1.legend(lines, [l.get_label() for l in lines], bbox_to_anchor=(1,1))
+
+    plt.show()
+n_fc_plot()
+
+Cr_plot()
+
+
 power_plot_function()
 SOC_plot_function()
-energy_plot_function()
+print('the hydrogen consumption is ',(m_fc.x+((1 - SOE_i[N-1].x) * E_cap) / H_heat_value / n_fc_max))
