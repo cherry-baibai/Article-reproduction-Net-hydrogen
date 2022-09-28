@@ -31,7 +31,7 @@ P_fc_max = 250000 #W
 P_ESD_max = 400000 #W
 n_m = 0.9 #motor efficiency
 n_ESD = 0.88 #ESD efficiency
-n_fc_max = 0.84 #maximum efficiency of fuel cell
+n_fc_max = 0.6 #maximum efficiency of fuel cell
 g = 9.8
 v_max = 33 #mps
 v_min = 0.1 #mps
@@ -58,7 +58,7 @@ for index in range(29, N):
 #energy storage parametewrs(不知道单位)
 E_cap = 1000000*cap +1
 PESD = 400000 #it is Pd_max and Pc_max (to constrain the distributed energy)
-H_heat_value = 100000 #kJ/kg
+H_heat_value = 140000 #J/g
 
 #modelling (this is based on time, the formulation is a little different to the model which is based on distance)
 m = Model('hydrogen_power')

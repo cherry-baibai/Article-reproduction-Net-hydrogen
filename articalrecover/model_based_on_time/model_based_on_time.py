@@ -30,7 +30,7 @@ P_fc_max = 250000 #W
 P_ESD_max = 400000 #W
 n_m = 0.9 #motor efficiency
 n_ESD = 0.88 #ESD efficiency
-n_fc_max = 0.84 #maximum efficiency of fuel cell
+n_fc_max = 0.6 #maximum efficiency of fuel cell
 g = 9.8
 v_max = 33 #mps
 v_min = 0.1 #mps
@@ -58,7 +58,7 @@ for index in range(29, N):
 #energy storage parametewrs(不知道单位)
 E_cap = 1000000*cap +1
 PESD = 400000
-H_heat_value = 100000 #kJ/kg
+H_heat_value = 140000 #J/g
 
 #modelling (this is based on time, the formulation is a little different to the model which is based on distance)
 m = Model('hydrogen_power')
@@ -199,10 +199,10 @@ for index in i:
 m.addConstr(m_fc == quicksum(m_i_fc))
 
 #Equation(15) calculate the m_ESD
-m_ESD = ((1 - SOE_i[N-1]) * E_cap) / H_heat_value / n_fc_max
+m_ESD = ((1 - SOE_i[N-1]) * E_cap) /n_fc_max/H_heat_value #g
 
 #objective function
-obj = m_fc + m_ESD
+obj = m_fc + m_ESD #g
 
 #iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 
@@ -291,7 +291,7 @@ def Cr_plot():
     #plt.plot(Time_plot, Cr_fc_plot)
     plt.plot(Time_plot, m_i_fc_plot)
     plt.xlabel("Time(s)")
-    plt.ylabel("Cr(kg/t)")
+    plt.ylabel("Cr(g/t)")
     plt.grid()
     plt.show()
 
@@ -329,4 +329,3 @@ Cr_plot()
 power_plot_function()
 SOC_plot_function()
 print('the hydrogen consumption is ',(m_fc.x+((1 - SOE_i[N-1].x) * E_cap) / H_heat_value / n_fc_max))
-

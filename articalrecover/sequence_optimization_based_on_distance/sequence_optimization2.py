@@ -64,7 +64,7 @@ P_fc_max = 250000 #W
 P_ESD_max = 400000 #W
 n_m = 0.9 #motor efficiency
 n_ESD = 0.88 #ESD efficiency
-n_fc_max = 0.84 #maximum efficiency of fuel cell
+n_fc_max = 0.6 #maximum efficiency of fuel cell
 g = 9.8
 v_max = 33 #mps
 v_min = 0.1 #mps
@@ -75,7 +75,7 @@ ii = list(range(0,N)) #0-40 len=41
 #energy storage parametewrs(不知道单位)
 E_cap = 1000000*cap +1
 PESD = 400000 #it is Pd_max and Pc_max (to constrain the distributed energy)
-H_heat_value = 100000 #kJ/kg
+H_heat_value = 140000 #J/g
 #modelling (this is based on time, the formulation is a little different to the model which is based on distance)
 m = Model('hydrogen_power')
 
@@ -170,12 +170,14 @@ def power_plot_function():
     P_seg_plot = [E_i_seg[0] / delta_t_i[0] / 1000]
     P_ch_plot = [-E_i_ch[0].x / delta_t_i[0] / 1000]
     P_dis_plot = [E_i_dis[0].x / delta_t_i[0] / 1000]
+    P_fc_max_twentypersent = [250 * 0.2]
     for index in i: #0-39
         P_fc_plot.append(E_i_fc[index].x / delta_t_i[index] / 1000)
         P_ESD_plot.append((E_i_dis[index].x - E_i_ch[index].x) / delta_t_i[index] / 1000)
         P_seg_plot.append(E_i_seg[index] / delta_t_i[index] / 1000)  # 两者是等价的P_seg_plot2.append((E_i_fc[index].x + E_i_dis[index].x * n_ESD - E_i_ch[index].x / n_ESD)/delta_t/1000)
         P_ch_plot.append(-E_i_ch[index].x / delta_t_i[index] / 1000)
         P_dis_plot.append(E_i_dis[index].x / delta_t_i[index] / 1000)
+        P_fc_max_twentypersent.append(250 * 0.2)
         distance_plot.append((index+1) * delta_d)
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
@@ -185,6 +187,7 @@ def power_plot_function():
     ax1.step(distance_plot, P_seg_plot, color='m', label="the required/get power")
     ax1.step(distance_plot, P_ch_plot, color='g', label="ESD charge power")
     ax1.step(distance_plot, P_dis_plot, color='c', label="ESD discharge power")
+    ax1.plot(distance_plot, P_fc_max_twentypersent, color='yellow', label="20% max power of FC")
 
     ax1.set_xlabel("Distance(m)")
     ax1.set_ylabel("Power(kw)")
